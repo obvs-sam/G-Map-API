@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EMI Admin | Dual Database</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        /* --- VARIABLES --- */
+        :root {
+            --bg-body: #f3f4f6; --bg-card: #ffffff;
+            --text-main: #111827; --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --primary: #4f46e5;
+            --success: #10b981; --danger: #ef4444; --warn: #f59e0b;
+        }
+
+        * { box-sizing: border-box; outline: none; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; padding: 20px; }
+        
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* HEADER */
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+
+        /* STATS */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); }
+        .stat-val { font-size: 1.8rem; font-weight: 700; display: block; }
+        .stat-lbl { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+
+        /* TABLE */
+        .table-card { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+        .table-scroll { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+        thead { background: #f9fafb; border-bottom: 1px solid var(--border); }
+        th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+        td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.9rem; vertical-align: middle; }
+
+        /* --- 4 BUTTON SYSTEM --- */
+        .control-panel { display: flex; gap: 15px; align-items: center; }
+        .btn-group { display: flex; gap: 5px; }
+        .group-label { font-size: 0.65rem; color: var(--text-muted); font-weight: 800; margin-bottom: 4px; display: block; letter-spacing: 0.5px; }
+
+        .btn { 
+            padding: 8px 12px; border-radius: 6px; border: 1px solid transparent; 
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; 
+        }
+        .btn:active { transform: scale(0.95); }
+
+        /* Restriction Buttons */
+        .btn-res-on { background: #fff7ed; color: #c2410c; border-color: #fed7aa; } 
+        .btn-res-on:hover { background: #ffedd5; }
+        .btn-res-off { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; } 
+        .btn-res-off:hover { background: #dcfce7; }
+
+        /* Lock Buttons (Targeting 'devices') */
+        .btn-lock { background: #fef2f2; color: #b91c1c; border-color: #fecaca; } 
+        .btn-lock:hover { background: #fee2e2; }
+        .btn-unlock { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+        .btn-unlock:hover { background: #dcfce7; }
+
+        .btn-info { background: #eff6ff; color: var(--primary); border-color: #bfdbfe; }
+
+        /* Indicators */
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .dot-red { background: var(--danger); }
+        .dot-green { background: var(--success); }
+
+        /* MODAL */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: white; width: 95%; max-width: 600px; max-height: 90vh; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+        .modal-body { padding: 20px; overflow-y: auto; }
+
+        /* MOBILE */
+        @media (max-width: 900px) {
+            thead { display: none; }
+            tr { display: block; border-bottom: 1px solid var(--border); padding: 15px; }
+            td { display: block; padding: 5px 0; border: none; }
+            td:nth-child(1) { font-weight: 700; font-size: 1.1rem; border-bottom: 1px dashed var(--border); margin-bottom: 10px; padding-bottom: 10px; }
+            td:nth-child(2) { display: none; } 
+            .control-panel { flex-direction: column; align-items: stretch; gap: 15px; }
+            .btn-group { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+            .btn { justify-content: center; padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="topbar">
+            <div class="brand"><i class="fa-solid fa-server"></i> EMI ADMIN PRO</div>
+            <div style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">
+                <span id="dbStatus">Initializing...</span>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-lbl">Total Devices</span>
+                <span class="stat-val" id="cntTotal">...</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-lbl" style="color:#c2410c">Policy Restricted</span>
+                <span class="stat-val" id="cntRes" style="color:#c2410c">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-lbl" style="color:#b91c1c">Screen Locked</span>
+                <span class="stat-val" id="cntLock" style="color:#b91c1c">0</span>
+            </div>
+        </div>
+
+        <input type="text" id="searchBox" placeholder="🔍 Search Device ID..." onkeyup="app.handleSearch()" style="width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:20px;">
+
+        <div class="table-card">
+            <div class="table-scroll">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th width="20%">Device ID</th>
+                            <th width="20%">Live Status</th>
+                            <th width="60%">Control Panel (Dual DB)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="3" style="text-align:center; padding:50px; color:#6b7280;">Loading both 'device' and 'devices'...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="padding:15px; border-top:1px solid var(--border); display:flex; justify-content:space-between;">
+                <button onclick="app.changePage(-1)" class="btn">Previous</button>
+                <span style="font-size:0.8rem; font-weight:600; align-self:center;">Page <span id="pgNum">1</span></span>
+                <button onclick="app.changePage(1)" class="btn">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="infoModal" class="modal">
+        <div class="modal-box">
+            <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0;">Details</h3>
+                <button onclick="document.getElementById('infoModal').style.display='none'" style="border:none; background:none; font-size:1.5rem;">×</button>
+            </div>
+            <div id="modalBody" class="modal-body"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+              apiKey: "AIzaSyCXWbB9WDAIaJL_4OWmDA0Z27o4ydCo8AA",
+  authDomain: "mdmapp-2b5f7.firebaseapp.com",
+  databaseURL: "https://mdmapp-2b5f7-default-rtdb.firebaseio.com",
+  projectId: "mdmapp-2b5f7",
+  storageBucket: "mdmapp-2b5f7.firebasestorage.app",
+  messagingSenderId: "836031113994",
+  appId: "1:836031113994:web:7b4ca9f65666983d2c28f3",
+  measurementId: "G-CKB4VFER8M"
+        };
+
+        const db = getDatabase(initializeApp(firebaseConfig));
+
+        class App {
+            constructor() {
+                this.mainData = {}; // From 'device'
+                this.lockData = {}; // From 'devices'
+                this.mergedList = [];
+                this.displayData = [];
+                this.currentPage = 1;
+                this.rowsPerPage = 10;
+                this.searchTerm = '';
+            }
+
+            init() {
+                // 1. Listen to 'device' (Policy/Restriction)
+                onValue(ref(db, 'device'), (snap) => {
+                    this.mainData = snap.val() || {};
+                    this.combineAndRender();
+                });
+
+                // 2. Listen to 'devices' (Screen Lock)
+                onValue(ref(db, 'devices'), (snap) => {
+                    this.lockData = snap.val() || {};
+                    this.combineAndRender();
+                });
+            }
+
+            combineAndRender() {
+                // Merge Logic: We assume 'device' has the master list of IDs
+                const ids = Object.keys(this.mainData);
+                
+                this.mergedList = ids.map(id => {
+                    const mainObj = this.mainData[id] || {};
+                    const lockObj = this.lockData[id] || {};
+                    
+                    return {
+                        id: id,
+                        // 'device' path se
+                        isActiveRestriction: mainObj.isActiveRestriction === true,
+                        // 'devices' path se
+                        isLock: lockObj.isLock === true
+                    };
+                }).reverse(); // Newest first
+
+                // Update Stats
+                document.getElementById('cntTotal').innerText = this.mergedList.length;
+                document.getElementById('cntRes').innerText = this.mergedList.filter(d => d.isActiveRestriction).length;
+                document.getElementById('cntLock').innerText = this.mergedList.filter(d => d.isLock).length;
+                document.getElementById('dbStatus').innerText = `Synced: ${this.mergedList.length} Units`;
+
+                this.applyLogic();
+            }
+
+            handleSearch() {
+                this.searchTerm = document.getElementById('searchBox').value.toLowerCase();
+                this.currentPage = 1;
+                this.applyLogic();
+            }
+
+            applyLogic() {
+                let data = this.mergedList;
+                if (this.searchTerm) data = data.filter(d => d.id.toLowerCase().includes(this.searchTerm));
+                this.displayData = data;
+                this.renderTable();
+            }
+
+            renderTable() {
+                const total = this.displayData.length;
+                if (total === 0) return document.getElementById('tableBody').innerHTML = '<tr><td colspan="3" style="text-align:center; padding:40px;">No Matches</td></tr>';
+
+                const pages = Math.ceil(total / this.rowsPerPage);
+                if(this.currentPage > pages) this.currentPage = pages;
+                if(this.currentPage < 1) this.currentPage = 1;
+                
+                const start = (this.currentPage - 1) * this.rowsPerPage;
+                const pageData = this.displayData.slice(start, start + this.rowsPerPage);
+                document.getElementById('pgNum').innerText = `${this.currentPage} / ${pages}`;
+
+                document.getElementById('tableBody').innerHTML = pageData.map(d => {
+                    return `
+                    <tr>
+                        <td>
+                            <div style="font-weight:700; color:var(--primary); font-size:1.05rem;">${d.id}</div>
+                            <div style="font-size:0.75rem; color:#6b7280;">
+                                <i class="fa-regular fa-copy" style="cursor:pointer;" onclick="app.copy('${d.id}')"></i> Copy ID
+                            </div>
+                        </td>
+                        
+                        <td>
+                            <div style="margin-bottom:5px; font-size:0.8rem;">
+                                <span class="status-dot ${d.isActiveRestriction ? 'dot-red' : 'dot-green'}"></span>
+                                Restriction: <b>${d.isActiveRestriction ? 'ON' : 'OFF'}</b>
+                            </div>
+                            <div style="font-size:0.8rem;">
+                                <span class="status-dot ${d.isLock ? 'dot-red' : 'dot-green'}"></span>
+                                Screen Lock: <b>${d.isLock ? 'LOCKED' : 'UNLOCKED'}</b>
+                            </div>
+                        </td>
+
+                        <td>
+                            <div class="control-panel">
+                                
+                                <div>
+                                    <span class="group-label">POLICY ('device')</span>
+                                    <div class="btn-group">
+                                        <button class="btn btn-res-on" onclick="app.setRestriction('${d.id}', true)">
+                                            <i class="fa-solid fa-shield-halved"></i> Apply
+                                        </button>
+                                        <button class="btn btn-res-off" onclick="app.setRestriction('${d.id}', false)">
+                                            <i class="fa-regular fa-circle-check"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span class="group-label">SCREEN ('devices')</span>
+                                    <div class="btn-group">
+                                        <button class="btn btn-lock" onclick="app.setLock('${d.id}', true)">
+                                            <i class="fa-solid fa-lock"></i> Lock
+                                        </button>
+                                        <button class="btn btn-unlock" onclick="app.setLock('${d.id}', false)">
+                                            <i class="fa-solid fa-lock-open"></i> Unlock
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span class="group-label">DETAILS</span>
+                                    <button class="btn btn-info" onclick="app.showInfo('${d.id}')">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                </div>
+
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+
+            changePage(d) { this.currentPage += d; this.renderTable(); }
+            copy(t) { navigator.clipboard.writeText(t); alert('Copied'); }
+
+            // ⚠️ UPDATE PATH: device/{id}/isActiveRestriction
+            setRestriction(id, val) {
+                if(confirm(`Confirm: ${val?'APPLY':'REMOVE'} Restriction for ${id}?`)) {
+                    update(ref(db, `device/${id}`), { isActiveRestriction: val })
+                    .catch(e => alert(e.message));
+                }
+            }
+
+            // 🔒 UPDATE PATH: devices/{id}/isLock
+            setLock(id, val) {
+                if(confirm(`Confirm: ${val?'LOCK':'UNLOCK'} Screen for ${id}?`)) {
+                    update(ref(db, `devices/${id}`), { isLock: val })
+                    .catch(e => alert(e.message));
+                }
+            }
+
+            async showInfo(id) {
+                const m = document.getElementById('infoModal');
+                const b = document.getElementById('modalBody');
+                m.style.display = 'flex';
+                b.innerHTML = '<div style="padding:40px; text-align:center;">Loading...</div>';
+
+                try {
+                    const res = await fetch(`https://login.emitrackon.in/api/get/hidden_app/send-device-info/${id}`);
+                    const json = await res.json();
+                    const c = json.customer;
+                    const r = c.retailer || {};
+
+                    let mapUrl = "";
+                    if(c.latitude && c.longitude) mapUrl = `https://maps.google.com/maps?q=${c.latitude},${c.longitude}&z=15&output=embed`;
+                    else if(r.address) mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(r.address)}&z=15&output=embed`;
+
+                    b.innerHTML = `
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                            <div><b>Name:</b> ${c.name}</div>
+                            <div><b>Phone:</b> ${c.phone}</div>
+                            <div><b>EMI:</b> ₹${c.emi_amount}</div>
+                            <div><b>Loan:</b> ${c.subscription_id}</div>
+                        </div>
+                        <iframe src="${mapUrl}" width="100%" height="200" style="border:none; border-radius:8px; margin-bottom:10px;"></iframe>
+                        <a href="${mapUrl.replace('&output=embed','')}" target="_blank" style="display:block; padding:10px; background:#4f46e5; color:white; text-align:center; border-radius:8px; text-decoration:none;">Open Map</a>
+                    `;
+                } catch(e) { b.innerHTML = "Error loading info"; }
+            }
+        }
+
+        window.app = new App();
+        app.init();
+    </script>
+</body>
+</html>
+
